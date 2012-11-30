@@ -13,7 +13,7 @@ class tumblr_request(object):
         try:
             self.__max_items = int(max_items)
         except ValueError:
-            self.__max_items = 0
+            self.__max_items = -1
         try:
             self.__offset = int(offset)
         except ValueError:
