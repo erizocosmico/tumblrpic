@@ -1,0 +1,85 @@
+#!/usr/bin/env python
+#-*- coding: utf-8 -*-
+# @author José Miguel Molina <rd4091@gmail.com> <http://mvader.github.com>
+# @version 0.4.2
+# @copyright (c) 2012 José Miguel Molina
+# @license http://opensource.org/licenses/gpl-2.0.php GNU General Public License v2
+
+import urllib2, json, sys, re
+
+class tumblr_request(object):
+    def __init__(self, blog_name, api_key, max_items, offset):
+        (self.__blog_name, self.__api_key) = (blog_name, api_key)
+        try:
+            self.__max_items = int(max_items)
+        except ValueError:
+            self.__max_items = 0
+        try:
+            self.__offset = int(offset)
+        except ValueError:
+            self.__offset = 0
+        self.__items = []
+        
+    def __get_request_url(self, offset):
+        return "http://api.tumblr.com/v2/blog/%s.tumblr.com/posts/photo?api_key=%s&offset=%d" % (self.__blog_name, self.__api_key, offset)
+        
+    def __get_filename(self, item):
+        return re.search(r'http:\/\/([0-9]+)\.media\.tumblr\.com\/(.*)', item).group(2)
+    
+    def load(self):
+        while True:
+            try:
+                if self.__max_items == 0:
+                    break
+                response = json.loads(urllib2.urlopen(self.__get_request_url(self.__offset)).read())
+                if response['response']['posts'] == []:
+                    break
+                for post in response['response']['posts']:
+                    for photo in post['photos']:
+                        if self.__max_items == 0:
+                            break
+                        self.__items.append(photo['original_size']['url'])
+                        self.__max_items -= 1
+                self.__offset += 20
+            except:
+                raise Exception('Unexpected error during execution.')
+            
+    def save(self):
+        for item in self.__items:
+            try:
+                filename = self.__get_filename(item)
+                with open(filename, 'wb') as f:
+                    print "Downloading %s..." % filename
+                    f.write(urllib2.urlopen(item).read())
+            except:
+                raise Exception("Error retrieving images.")
+        print "Process finished."
+                
+args = {'-k' : '', '-n' : '', '-u' : '', '-f' : ''}
+next_arg = ''
+is_help = False
+for arg in sys.argv[1:]:
+    if arg in args.keys():
+        next_arg = arg
+    elif next_arg != '':
+        args[next_arg] = arg
+        next_arg = ''
+    elif arg == '--help':
+        print 'Usage of tumblrpic:'
+        print '    tumblrpic -k <key> -u <username> [-n <max items>] [-f <offset>]'
+        print '    -k Your application consumer key'
+        print '    -u Tumblr\'s username e.g example for example.tumblr.com'
+        print '    -n Items to retrieve'
+        print '    -f Initial offset for retrieving images'
+        is_help = True
+        break
+    else:
+        print "Invalid parameter %s" % arg
+        break
+
+if (not args['-k'] or not args['-u']) and not is_help:
+    print "You must provide -k and -u parameteres See tumblrpic --help for more info."
+elif not is_help:
+    t = tumblr_request(args['-u'], args['-k'], args['-n'], args['-f'])
+    t.load()
+    t.save()
